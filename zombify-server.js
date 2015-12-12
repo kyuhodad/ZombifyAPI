@@ -1,78 +1,54 @@
 
-( function () {
-  var http = require('http');
-  var url = require('url');
+var express = require('express');
+var app = express ();
 
-  var zombify = require('./zombieTranslator').zombify;
-  var unzombify = require('./zombieTranslator').unzombify;
+var zombify = require('./zombieTranslator').zombify;
+var unzombify = require('./zombieTranslator').unzombify;
 
-  var portNumber = 7070;
+var portNumber = 7000;
 
-  // Create and start server.
-  var server = http.createServer(handleRequest);
-  server.listen (portNumber, function () {
-    console.log('Zmobify server started and is listening on port ' + portNumber + '.');
-  });
+//
+// Logging...
+//
+app.use(function(req, res, next) {
+  console.log((new Date()).toString() + " " + req.method + " " + req.url);
+  showRequestProperties(req);
+  next();
+});
 
-  // Request handler.
-  function handleRequest (request, response) {
-    showRequestProperties(request);
+app.get('/zombify', function(req, res, next) {
+  showAllProperties('/zombofy:', res);
+  var zombified = zombify("Hello World!!!");
+  res.send(zombified);
+});
 
-    var purl = url.parse(request.url, true);
+app.get('/unzombify', function(req, res, next) {
+  showAllProperties('/unzombify:', res);
+  var unzombified = unzombify("HrrllrrrRr wRwrrrRrRRld!!!");
+  res.send(unzombified);
+});
 
-    if (request.url === '/favicon.ico') {
-      response.writeHead(200);
-      response.end();
-      return;
-    }
+app.listen(portNumber);
 
-    if (purl.pathname === '/zombify') {
-      response.writeHead(200, {'Content-Type': 'application/json'});
-      var zombified = zombify("Hello World!!!");
-      var jsonOut = JSON.stringify({results: zombified}, null, '\t');
-      response.write(jsonOut);
-      response.end();
-      return;
-    }
-    if (purl.pathname === '/unzombify') {
-      response.writeHead(200, {'Content-Type': 'application/json'});
-      var unzombified = unzombify("HrrllrrrRr wRwrrrRrRRld!!!");
-      var jsonOut = JSON.stringify({results: unzombified}, null, '\t');
-      response.write(jsonOut);
-      response.end();
-      return;
-    }
+function messageRequestProperties(req) {
+  var message = "Request properties....\n";
 
-    response.write("Hello Node.JS");
-    response.end();
+  message += " [url]   : " + req["url"] + "\n";
+  message += " [method]: " + req["method"] + "\n";
+  message += " [headers]: " + "\n";
+  var headers = req["headers"];
+  for (var key in headers) {
+    var value = headers[key];
+    message += "    [headers." + key + "] : " + value + "\n";
   }
+  return message;
+}
 
-  function messageRequestProperties(request) {
-    var message = "Request properties....\n";
+function showRequestProperties(req) {
+  console.log(messageRequestProperties(req));
+}
 
-    message += " [url]   : " + request["url"] + "\n";
-    message += " [method]: " + request["method"] + "\n";
-    message += " [headers]: " + "\n";
-    var headers = request["headers"];
-    for (var key in headers) {
-      var value = headers[key];
-      message += "    [headers." + key + "] : " + value + "\n";
-    }
-    return message;
-  }
-
-  function showRequestProperties(request) {
-    console.log(messageRequestProperties(request));
-  }
-
-  function showAllProperties(title, obj) {
-    console.log(title + "[" + obj + "]");
-
-    for (var key in obj) {
-      var value = obj[key];
-      console.log(" [" + key + "] : " + value);
-    }
-  }
-
-
-})();
+function showAllProperties(title, obj) {
+  console.log(title + "[" + obj + "]");
+  console.log(JSON.stringify(obj), null, '\t');
+}
