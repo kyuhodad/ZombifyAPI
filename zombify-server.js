@@ -1,54 +1,107 @@
 
+var fs = require('fs');
+
 var express = require('express');
 var app = express ();
+var portNumber = 7000;
+
+var markdown = require( "markdown" ).markdown;
 
 var zombify = require('./zombieTranslator').zombify;
 var unzombify = require('./zombieTranslator').unzombify;
+var maxStringLength = 10;
 
-var portNumber = 7000;
-
-//
-// Logging...
-//
+// Logging request...
 app.use(function(req, res, next) {
-  console.log((new Date()).toString() + " " + req.method + " " + req.url);
-  showRequestProperties(req);
+  logRequest (req);
   next();
 });
 
+// Access controls
+// TODO: Check if it needs... (With a simple app)
+app.use(function(req, res, next){
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header('Access-Control-Allow-Methods', 'POST, GET, PUT, DELETE, OPTIONS');
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  next();
+});
+
+// '/' route:
+app.get('/', function(req, res, next) {
+  // TODO: Need to send the translated mark-down file for API help.
+  var apiDocument = "Zombify / Unzombify API document..."
+  res.send(apiDocument);
+  logResponse (res);
+});
+
+// zombify route
 app.get('/zombify', function(req, res, next) {
-  showAllProperties('/zombofy:', res);
-  var zombified = zombify("Hello World!!!");
-  res.send(zombified);
+  var str = req.query.q;
+  if (str !== undefined) {
+    translate (str, zombify, res);
+    return;
+  }
+  next();
 });
 
+// unzombify route
 app.get('/unzombify', function(req, res, next) {
-  showAllProperties('/unzombify:', res);
-  var unzombified = unzombify("HrrllrrrRr wRwrrrRrRRld!!!");
-  res.send(unzombified);
+  var str = req.query.q;
+  if (str !== undefined) {
+    translate (str, unzombify, res);
+    return;
+  }
+  next();
 });
 
+// Handles route error
+app.use(function(req, res, next) {
+  res.status(404);
+  res.json({"status": 404, "message": "Route not found"});
+  logResponse (res);
+});
+
+// Listen.....
 app.listen(portNumber);
 
-function messageRequestProperties(req) {
-  var message = "Request properties....\n";
-
-  message += " [url]   : " + req["url"] + "\n";
-  message += " [method]: " + req["method"] + "\n";
-  message += " [headers]: " + "\n";
-  var headers = req["headers"];
-  for (var key in headers) {
-    var value = headers[key];
-    message += "    [headers." + key + "] : " + value + "\n";
+// Translating function using given translator
+function translate(str, tranlator, res) {
+  if (!handleStringLengthLimit (str, res)) {
+    var translated = tranlator(str);
+    res.json({result: translated});
+    logResponse (res);
   }
-  return message;
 }
 
-function showRequestProperties(req) {
-  console.log(messageRequestProperties(req));
+// Handles the limit of requested string length...
+function handleStringLengthLimit (str, res) {
+  var hasHandled = false;
+  if (str.length > maxStringLength) {
+    res.status(414);
+    res.json({"status": 414, "message": "Requested string length is over the limit (" + maxStringLength + ")."});
+    logResponse (res);
+    hasHandled = true;
+  }
+  return hasHandled;
 }
 
-function showAllProperties(title, obj) {
-  console.log(title + "[" + obj + "]");
-  console.log(JSON.stringify(obj), null, '\t');
+// Logging request data
+function logRequest(req) {
+  var logMessage =
+      "[Request: " + new Date().toString() + "]\n  " +
+      req.method + " on [" + req.path + "]\n";
+
+  var params = "    with parameters: \n";
+  for(var key in req.query) {
+    params += '      "' + key + '": "' + req.query[key] + '"';
+  }
+  logMessage += params;
+  logMessage += "\n  user-agent: " + req.headers['user-agent'];
+
+  console.log(logMessage);
+}
+
+// Logging response data
+function logResponse(res) {
+  console.log("[Response]" + res.statusCode + " " + res.statusMessage);
 }
