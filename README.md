@@ -8,8 +8,6 @@ This project provides a server which providing two APIs, zombify and unzombfy. T
 
 ## ZombifyAPI
 
--------------------------------------------------------------------------
-
 ### GET zombify
 
 Returns zombified string of given string through the parameter `q`.
