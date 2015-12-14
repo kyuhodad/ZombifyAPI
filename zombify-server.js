@@ -9,7 +9,11 @@ var markdown = require( "markdown" ).markdown;
 
 var zombify = require('./zombieTranslator').zombify;
 var unzombify = require('./zombieTranslator').unzombify;
-var maxStringLength = 10;
+var maxStringLength = 1000;
+
+//var readmeFS = fs.createReadStream('README.md');
+var readmeStr = fs.readFileSync('./README.md').toString ();
+var apiDocHTML = markdown.toHTML(readmeStr.substr(readmeStr.search('## ZombifyAPI')));
 
 // Logging request...
 app.use(function(req, res, next) {
@@ -28,30 +32,24 @@ app.use(function(req, res, next){
 
 // '/' route:
 app.get('/', function(req, res, next) {
-  // TODO: Need to send the translated mark-down file for API help.
-  var apiDocument = "Zombify / Unzombify API document..."
-  res.send(apiDocument);
+  res.send(apiDocHTML);
   logResponse (res);
 });
 
 // zombify route
 app.get('/zombify', function(req, res, next) {
-  var str = req.query.q;
-  if (str !== undefined) {
-    translate (str, zombify, res);
-    return;
+  if (!translate ('/zombify', req.query.q, zombify, res)) {
+    // If it has not been handled, keep going to next.
+    next();
   }
-  next();
 });
 
 // unzombify route
 app.get('/unzombify', function(req, res, next) {
-  var str = req.query.q;
-  if (str !== undefined) {
-    translate (str, unzombify, res);
-    return;
+  if (!translate ('/unzombify', req.query.q, unzombify, res)) {
+    // If it has not been handled, keep going to next.
+    next();
   }
-  next();
 });
 
 // Handles route error
@@ -62,15 +60,39 @@ app.use(function(req, res, next) {
 });
 
 // Listen.....
-app.listen(portNumber);
+app.listen(portNumber, function () {
+  console.log('ZombifyAPI Server is listening on port ' + portNumber + '.');
+});
 
 // Translating function using given translator
-function translate(str, tranlator, res) {
-  if (!handleStringLengthLimit (str, res)) {
+function translate(apiName, str, tranlator, res) {
+  var hasHandled = handleEmptyString(apiName, str, res);
+  if (!hasHandled) {
+    hasHandled = handleStringLengthLimit(str, res);
+  }
+
+  if (!hasHandled) {
     var translated = tranlator(str);
     res.json({result: translated});
     logResponse (res);
+    hasHandled = true;
   }
+
+  return hasHandled;
+}
+
+// Handles the limit of requested string length...
+function handleEmptyString (apiName, str, res) {
+  var hasHandled = false;
+  if ((str === undefined) || (str.length === 0)) {
+    res.json({
+      "result": "",
+      "message": "Empty string requested. Use '" + apiName + "?q=string to translate' format."
+    });
+    logResponse (res);
+    hasHandled = true;
+  }
+  return hasHandled;
 }
 
 // Handles the limit of requested string length...
@@ -88,14 +110,19 @@ function handleStringLengthLimit (str, res) {
 // Logging request data
 function logRequest(req) {
   var logMessage =
-      "[Request: " + new Date().toString() + "]\n  " +
-      req.method + " on [" + req.path + "]\n";
+      "\n[Request: " + new Date().toISOString() + "]\n  " +
+      req.method + " on [" + req.path + "]";
 
-  var params = "    with parameters: \n";
+  var hasParam = false;
+  var params = " (";
   for(var key in req.query) {
-    params += '      "' + key + '": "' + req.query[key] + '"';
+    hasParam = true;
+    params += '"' + key + '": "' + req.query[key] + '"';
   }
-  logMessage += params;
+  if (hasParam) {
+    params += ')';
+    logMessage += params;
+  }
   logMessage += "\n  user-agent: " + req.headers['user-agent'];
 
   console.log(logMessage);
@@ -103,5 +130,5 @@ function logRequest(req) {
 
 // Logging response data
 function logResponse(res) {
-  console.log("[Response]" + res.statusCode + " " + res.statusMessage);
+  console.log("[Response: " + new Date().toISOString() + "]  Status Code: " + res.statusCode);
 }
