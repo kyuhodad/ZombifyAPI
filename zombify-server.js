@@ -1,6 +1,4 @@
 
-var fs = require('fs');
-
 var express = require('express');
 var app = express ();
 var portNumber = 7000;
@@ -11,7 +9,7 @@ var zombify = require('./zombieTranslator').zombify;
 var unzombify = require('./zombieTranslator').unzombify;
 var maxStringLength = 1000;
 
-//var readmeFS = fs.createReadStream('README.md');
+var fs = require('fs');
 var readmeStr = fs.readFileSync('./README.md').toString ();
 var apiDocHTML = markdown.toHTML(readmeStr.substr(readmeStr.search('## ZombifyAPI')));
 
@@ -22,7 +20,6 @@ app.use(function(req, res, next) {
 });
 
 // Access controls
-// TODO: Check if it needs... (With a simple app)
 app.use(function(req, res, next){
   res.header("Access-Control-Allow-Origin", "*");
   res.header('Access-Control-Allow-Methods', 'POST, GET, PUT, DELETE, OPTIONS');
